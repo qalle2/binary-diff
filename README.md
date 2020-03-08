@@ -1,5 +1,5 @@
 # binary-diff
-Find differences in two binary files. More intelligent than the Windows `fc` utility.
+Find differences in two binary files. More intelligent than the Windows `fc` utility. Slow and needs a lot of memory, though.
 
 ## Syntax
 *options* *input_files*
@@ -17,7 +17,7 @@ Find differences in two binary files. More intelligent than the Windows `fc` uti
 * The files need not be the same size.
 
 ## Output
-Excluding the `found match`&hellip; messages, each output line consists of three values separated by commas:
+Excluding the `found match` messages, each output line consists of three values separated by commas:
 * Position of the match in the first input file (0 = first byte, empty value = no match).
 * Position of the match in the second input file (0 = first byte, empty value = no match).
 * Length of the match or the unmatched chunk.
