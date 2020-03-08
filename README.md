@@ -1,12 +1,13 @@
 # binary-diff
-Find differences in two binary files. More intelligent than the Windows `fc` utility. Slow and needs a lot of memory, though.
+Find differences in two binary files. More intelligent than the Windows `fc` utility. Very slow and needs a lot of memory, though.
 
 ## Syntax
 *options* *input_files*
 
 ### *options*
 * `-m` *length*, `--minimum-match-length` *length*
-  * Only look for matches of at least *length*.
+  * Only look for matches of at least *length* bytes.
+  * The larger the value, the faster the program will run, but the fewer matches will be found.
   * Minimum/default: 1.
   * Maximum: unlimited.
 * `-q`, `--quiet`
@@ -27,7 +28,30 @@ Examples of output lines:
 * `123,,789`: for the 789 bytes starting from position 123 in the first file, no match was found in the second file.
 * `,456,789`: for the 789 bytes starting from position 456 in the second file, no match was found in the first file.
 
-## Example
+Hint: copy the output to a spreadsheet program as CSV data.
+
+## Example 1
+`a.txt`: `ABCDEKLMNOPQRST`
+
+`b.txt`: `FGHIJKLMNOUVWXYZ`
+
+Input: `python binary_diff.py a.txt b.txt`
+
+Output:
+```
+found match of length 5 (total bytes matched: 5)
+
+"position in a.txt","position in b.txt","length"
+0,,5
+5,5,5
+10,,5
+,0,5
+,10,6
+```
+
+## Example 2
+The input files are the PRG ROM data of US and European versions of Super Mario Bros., 32 KiB each.
+
 Input: `python binary_diff.py --minimum-match-length 1024 smb-w.prg smb-e.prg`
 
 Output:
