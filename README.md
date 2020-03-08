@@ -21,6 +21,7 @@ Excluding the `found match` messages, each output line consists of three values 
 * Position of the match in the first input file (0 = first byte, empty value = no match).
 * Position of the match in the second input file (0 = first byte, empty value = no match).
 * Length of the match or the unmatched chunk.
+
 Examples of output lines:
 * `123,456,789`: 789 bytes starting from position 123 in the first file are identical to the 789 bytes starting from position 456 in the second file.
 * `123,,789`: for the 789 bytes starting from position 123 in the first file, no match was found in the second file.
