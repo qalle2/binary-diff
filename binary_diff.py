@@ -1,48 +1,47 @@
 """Find differences in two binary files."""
 
-import getopt
-import os.path
+import argparse
+import os
 import sys
 
-def parse_arguments():
-    """Parse command line arguments using getopt."""
+def get_file_sizes(files):
+    """Get sizes of files in an iterable."""
 
     try:
-        (opts, inputFiles) = getopt.getopt(sys.argv[1:], "m:q", ("minimum-match-length=", "quiet"))
-    except getopt.GetoptError:
-        sys.exit("Invalid command line argument.")
-    opts = dict(opts)
-
-    # integer arguments
-    minMatchLen = opts.get("--minimum-match-length", opts.get("-m", "1"))
-    try:
-        minMatchLen = int(minMatchLen, 10)
-        if minMatchLen < 1:
-            raise ValueError
-    except ValueError:
-        sys.exit("Invalid minimum match length.")
-
-    # switches
-    quiet = "--quiet" in opts or "-q" in opts
-
-    # input files
-    if len(inputFiles) != 2:
-        sys.exit("Invalid number of input files.")
-    if not all(os.path.isfile(file) for file in inputFiles):
-        sys.exit("One of the input file does not exist.")
-    try:
-        fileSizes = [os.path.getsize(file) for file in inputFiles]
+        return [os.path.getsize(file) for file in files]
     except OSError:
         sys.exit("Error getting the size of the input files.")
-    if min(fileSizes) == 0:
+
+def parse_arguments():
+    """Parse command line arguments using argparse."""
+
+    parser = argparse.ArgumentParser(
+        description="Find differences in two binary files.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        "-m", "--minimum-match-length", type=int, default=1,
+        help="minimum length of matches to find (smaller = slower)"
+    )
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="do not print messages that indicate progress"
+    )
+    parser.add_argument(
+        "input_file", nargs=2, help="two binary files to compare (need not be the same size)"
+    )
+
+    args = parser.parse_args()
+
+    # additional validation
+    if args.minimum_match_length < 1:
+        sys.exit("Invalid minimum match length.")
+    if not all(os.path.isfile(file) for file in args.input_file):
+        sys.exit("One of the input files does not exist.")
+    if min(get_file_sizes(args.input_file)) == 0:
         sys.exit("One of the input files is empty.")
 
-    return {
-        "minMatchLen": minMatchLen,
-        "quiet": quiet,
-        "inputFiles": inputFiles,
-        "fileSizes": fileSizes,
-    }
+    return args
 
 def find_longest_common_bytestring(data1, data2, data1Ranges, data2Ranges):
     """Find the longest common bytestring in two bytestrings.
@@ -105,7 +104,7 @@ def delete_range(dataRanges, delStart, delLength, minNewLength):
 
 def find_differences(handle1, handle2, settings):
     """Find and differences in two binary files.
-    settings: dict
+    settings: from argparse
     return: matches: [(position_in_file1, position_in_file2, length), ...]"""
 
     # read the input files
@@ -124,17 +123,17 @@ def find_differences(handle1, handle2, settings):
         # find longest bytestring; exit if too short
         (matchPos1, matchPos2, matchLen) \
         = find_longest_common_bytestring(data1, data2, data1Ranges, data2Ranges)
-        if matchLen < settings["minMatchLen"]:
+        if matchLen < settings.minimum_match_length:
             break
 
         # remember the result
         matches.append((matchPos1, matchPos2, matchLen))
 
         # mark file address ranges used
-        data1Ranges = delete_range(data1Ranges, matchPos1, matchLen, settings["minMatchLen"])
-        data2Ranges = delete_range(data2Ranges, matchPos2, matchLen, settings["minMatchLen"])
+        data1Ranges = delete_range(data1Ranges, matchPos1, matchLen, settings.minimum_match_length)
+        data2Ranges = delete_range(data2Ranges, matchPos2, matchLen, settings.minimum_match_length)
 
-        if not settings["quiet"]:
+        if not settings.quiet:
             print("found match of length {:d} (total bytes matched: {:d})".format(
                 matchLen, sum(length for (pos1, pos2, length) in matches)
             ))
@@ -163,10 +162,12 @@ def invert_ranges(ranges_, fileSize):
     if prevEndPlus1 < fileSize:
         yield (prevEndPlus1, fileSize - prevEndPlus1)
 
-def print_results(matches, fileSizes):
+def print_results(matches, inputFiles):
     """Print the results (matches and unmatched parts in both files).
     matches: [(position_in_file1, position_in_file2, length), ...]
-    fileSizes: [file1_size, file2_size]"""
+    inputFiles: iterable of filenames"""
+
+    fileSizes = get_file_sizes(inputFiles)
 
     # initialize results with matches
     results = matches.copy()
@@ -195,22 +196,22 @@ def main():
 
     # find matches
     try:
-        with open(settings["inputFiles"][0], "rb") as handle1, \
-        open(settings["inputFiles"][1], "rb") as handle2:
+        with open(settings.input_file[0], "rb") as handle1, \
+        open(settings.input_file[1], "rb") as handle2:
             matches = find_differences(handle1, handle2, settings)
     except OSError:
         sys.exit("Error reading the input files.")
 
-    if not settings["quiet"]:
+    if not settings.quiet:
         print()
 
     # print results
     fileNames = (
         os.path.basename(file).encode("ascii", errors="backslashreplace").decode("ascii")
-        for file in settings["inputFiles"]
+        for file in settings.input_file
     )
     print('"position in {:s}","position in {:s}","length"'.format(*fileNames))
-    print_results(matches, settings["fileSizes"])
+    print_results(matches, settings.input_file)
 
 if __name__ == "__main__":
     main()
