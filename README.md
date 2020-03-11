@@ -2,20 +2,20 @@
 Find differences in two binary files. More intelligent than the Windows `fc` utility. Very slow and needs a lot of memory, though.
 
 ## Syntax
-*options* *input_files*
+```
+usage: binary_diff.py [-h] [-m MINIMUM_MATCH_LENGTH] [-q] input_file input_file
 
-### *options*
-* `-m` *length*, `--minimum-match-length` *length*
-  * Only look for matches of at least *length* bytes.
-  * The larger the value, the faster the program will run, but the fewer matches will be found.
-  * Minimum/default: 1.
-  * Maximum: unlimited.
-* `-q`, `--quiet`
-  * Quiet mode (don't print the `found match` messages that indicate progress).
+Find differences in two binary files.
 
-### *input_files*
-* Two binary files to compare.
-* The files need not be the same size.
+positional arguments:
+  input_file            two binary files to compare (need not be the same size)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m MINIMUM_MATCH_LENGTH, --minimum-match-length MINIMUM_MATCH_LENGTH
+                        minimum length of matches to find (smaller = slower) (default: 1)
+  -q, --quiet           do not print messages that indicate progress (default: False)
+```
 
 ## Output
 Excluding the `found match` messages, each output line consists of three values separated by commas:
