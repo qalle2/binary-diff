@@ -141,8 +141,11 @@ def find_differences(handle1, handle2, settings):
         data2Ranges = delete_range(data2Ranges, matchPos2, matchLen, settings.minimum_match_length)
 
         if not settings.quiet:
-            print("found match of length {:d} (total bytes matched: {:d})".format(
-                matchLen, sum(length for (pos1, pos2, length) in matches)
+            print("found match of length {:d} (total matched {:d}, unmatched {:d}/{:d})".format(
+                matchLen,
+                sum(length for (pos1, pos2, length) in matches),
+                len(data1) - sum(length for (pos, length) in data1Ranges),
+                len(data2) - sum(length for (pos, length) in data2Ranges)
             ))
 
     return sorted(matches)
