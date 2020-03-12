@@ -1,11 +1,8 @@
 # binary-diff
-Find differences in two binary files. More intelligent than the Windows `fc` utility. Very slow and needs a lot of memory, though.
-
-## Syntax
 ```
 usage: binary_diff.py [-h] [-m MINIMUM_MATCH_LENGTH] [-q] input_file input_file
 
-Find differences in two binary files.
+Compare two binary files by repeatedly finding the longest common bytestring, not necessarily in the same position.
 
 positional arguments:
   input_file            two binary files to compare (need not be the same size)
@@ -15,30 +12,22 @@ optional arguments:
   -m MINIMUM_MATCH_LENGTH, --minimum-match-length MINIMUM_MATCH_LENGTH
                         minimum length of matches to find (smaller = slower) (default: 1)
   -q, --quiet           do not print messages that indicate progress (default: False)
+
+Output lines consist of three integers separated by commas: position in file 1, position in file 2, length. If one of
+the positions is empty, the line denotes an unmatched chunk, otherwise a match. Positions start from 0. E.g. "10,20,3"
+means bytes 10-12 in file 1 are identical to bytes 20-22 in file 2, and "40,,5" means no match in file 2 was found for
+bytes 40-44 in file 1. Hint: copy the output to a spreadsheet program as CSV data.
 ```
 
-## Output
-Excluding the `found match` messages, each output line consists of three values separated by commas:
-* Position of the match in the first input file (0 = first byte, empty value = no match).
-* Position of the match in the second input file (0 = first byte, empty value = no match).
-* Length of the match or the unmatched chunk.
-
-Examples of output lines:
-* `123,456,789`: 789 bytes starting from position 123 in the first file are identical to the 789 bytes starting from position 456 in the second file.
-* `123,,789`: for the 789 bytes starting from position 123 in the first file, no match was found in the second file.
-* `,456,789`: for the 789 bytes starting from position 456 in the second file, no match was found in the first file.
-
-Hint: copy the output to a spreadsheet program as CSV data.
-
-## Example 1
-`a.txt`: `ABCDEKLMNOPQRST`
-
-`b.txt`: `FGHIJKLMNOUVWXYZ`
-
-Input: `python binary_diff.py a.txt b.txt`
-
-Output:
+## Examples
 ```
+C:\>type a.txt
+ABCDEKLMNOPQRST
+
+C:\>type b.txt
+FGHIJKLMNOUVWXYZ
+
+C:\>python binary_diff.py a.txt b.txt
 found match of length 5 (total bytes matched: 5)
 
 "position in a.txt","position in b.txt","length"
@@ -49,13 +38,8 @@ found match of length 5 (total bytes matched: 5)
 ,10,6
 ```
 
-## Example 2
-The input files are the PRG ROM data of US and European versions of Super Mario Bros., 32 KiB each.
-
-Input: `python binary_diff.py --minimum-match-length 1024 smb-w.prg smb-e.prg`
-
-Output:
 ```
+C:\>python binary_diff.py --minimum-match-length 1024 smb-w.prg smb-e.prg
 found match of length 3543 (total bytes matched: 3543)
 found match of length 2538 (total bytes matched: 6081)
 found match of length 1355 (total bytes matched: 7436)

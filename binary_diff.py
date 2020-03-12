@@ -1,4 +1,4 @@
-"""Find differences in two binary files."""
+"""Compare two binary files."""
 
 import argparse
 import os
@@ -16,8 +16,15 @@ def parse_arguments():
     """Parse command line arguments using argparse."""
 
     parser = argparse.ArgumentParser(
-        description="Find differences in two binary files.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Compare two binary files by repeatedly finding the longest common bytestring, "
+        "not necessarily in the same position.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        epilog="Output lines consist of three integers separated by commas: position in file 1, "
+        "position in file 2, length. If one of the positions is empty, the line denotes an "
+        "unmatched chunk, otherwise a match. Positions start from 0. E.g. \"10,20,3\" means bytes "
+        "10-12 in file 1 are identical to bytes 20-22 in file 2, and \"40,,5\" means no match in "
+        "file 2 was found for bytes 40-44 in file 1. Hint: copy the output to a spreadsheet "
+        "program as CSV data."
     )
 
     parser.add_argument(
