@@ -109,8 +109,8 @@ def delete_range(dataRanges, delStart, delLength, minNewLength):
     # sort (or find_longest_common_bytestring() won't return the first one of equally long strings)
     return sorted(dataRanges)
 
-def find_differences(handle1, handle2, settings):
-    """Find and differences in two binary files.
+def find_matches(handle1, handle2, settings):
+    """Find matching bytestrings in two binary files.
     settings: from argparse
     return: matches: [(position_in_file1, position_in_file2, length), ...]"""
 
@@ -141,12 +141,7 @@ def find_differences(handle1, handle2, settings):
         data2Ranges = delete_range(data2Ranges, matchPos2, matchLen, settings.minimum_match_length)
 
         if not settings.quiet:
-            print("found match of length {:d} (total matched {:d}, unmatched {:d}/{:d})".format(
-                matchLen,
-                sum(length for (pos1, pos2, length) in matches),
-                sum(length for (pos, length) in data1Ranges),
-                sum(length for (pos, length) in data2Ranges)
-            ))
+            print("found match of length {:d} at {:d}/{:d}".format(matchLen, matchPos1, matchPos2))
 
     return sorted(matches)
 
@@ -208,7 +203,7 @@ def main():
     try:
         with open(settings.input_file[0], "rb") as handle1, \
         open(settings.input_file[1], "rb") as handle2:
-            matches = find_differences(handle1, handle2, settings)
+            matches = find_matches(handle1, handle2, settings)
     except OSError:
         sys.exit("Error reading the input files.")
 

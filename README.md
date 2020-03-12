@@ -28,7 +28,7 @@ C:\>type b.txt
 FGHIJKLMNOUVWXYZ
 
 C:\>python binary_diff.py a.txt b.txt
-found match of length 5 (total matched 5, unmatched 10/11)
+found match of length 5 at 5/5
 
 "position in a.txt","position in b.txt","length"
 0,,5
@@ -40,10 +40,10 @@ found match of length 5 (total matched 5, unmatched 10/11)
 
 ```
 C:\>python binary_diff.py --minimum-match-length 1024 smb-w.prg smb-e.prg
-found match of length 3543 (total matched 3543, unmatched 29225/29225)
-found match of length 2538 (total matched 6081, unmatched 26687/26687)
-found match of length 1355 (total matched 7436, unmatched 25075/25076)
-found match of length 1128 (total matched 8564, unmatched 23942/23943)
+found match of length 3543 at 8293/8293
+found match of length 2538 at 1869/1869
+found match of length 1355 at 31156/31157
+found match of length 1128 at 7160/7160
 
 "position in smb-w.prg","position in smb-e.prg","length"
 0,,1869
