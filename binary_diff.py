@@ -147,24 +147,28 @@ def find_matches(handle1, handle2, settings):
 
 def invert_ranges(ranges_, fileSize):
     """Generate address ranges between 0...(fileSize - 1) that are not in ranges_.
-    ranges: [(start, length), ...]
+    ranges_: [(start, length), ...]
     yield: one (start, length) per call"""
 
+    # previous range
     prevStart = None
+    prevLength = None
+
     for (start, length) in ranges_:
         if prevStart is None:
-            # first item
+            # possible gap before the first range in ranges_
             if start > 0:
                 yield (0, start)
         else:
-            # other items
+            # possible gap between two ranges in ranges_
             prevEndPlus1 = prevStart + prevLength
-            yield (prevEndPlus1, start - prevEndPlus1)
+            if start > prevEndPlus1:
+                yield (prevEndPlus1, start - prevEndPlus1)
         prevStart = start
         prevLength = length
-    # last/only item
+    # possible gap after the last range in ranges_
     prevEndPlus1 = 0 if prevStart is None else prevStart + prevLength
-    if prevEndPlus1 < fileSize:
+    if fileSize > prevEndPlus1:
         yield (prevEndPlus1, fileSize - prevEndPlus1)
 
 def print_results(matches, inputFiles):
