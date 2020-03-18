@@ -1,6 +1,6 @@
 # binary-diff
 ```
-usage: binary_diff.py [-h] [-m MINIMUM_MATCH_LENGTH] [-q] input_file input_file
+usage: binary_diff.py [-h] [-m MIN_MATCH_LEN] input_file input_file
 
 Compare two binary files by repeatedly finding the longest common bytestring, not necessarily in the same position.
 
@@ -9,9 +9,8 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -m MINIMUM_MATCH_LENGTH, --minimum-match-length MINIMUM_MATCH_LENGTH
-                        minimum length of matches to find (smaller = slower) (default: 8)
-  -q, --quiet           do not print messages that indicate progress (default: False)
+  -m MIN_MATCH_LEN, --min-match-len MIN_MATCH_LEN
+                        minimum length of matches to find (default: 8)
 
 Output lines consist of three integers separated by commas: position in file 1, position in file 2, length. If one of
 the positions is empty, the line denotes an unmatched chunk, otherwise a match. Positions start from 0. E.g. "10,20,3"
@@ -28,27 +27,16 @@ C:\>type b.txt
 ijklmnop abcdefgh qrstuvwx IJKLMNOP
 
 C:\>python binary_diff.py a.txt b.txt
-found match of length 10 at 17/17
-found match of length 8 at 0/9
-found match of length 8 at 9/0
-
 "position in a.txt","position in b.txt","length"
-0,9,8
-8,,1
-9,0,8
-17,17,10
+0,9,9
+9,0,9
+18,18,9
 27,,8
-,8,1
 ,27,8
 ```
 
 ```
 C:\>python binary_diff.py --minimum-match-length 1024 smb-w.prg smb-e.prg
-found match of length 3543 at 8293/8293
-found match of length 2538 at 1869/1869
-found match of length 1355 at 31156/31157
-found match of length 1128 at 7160/7160
-
 "position in smb-w.prg","position in smb-e.prg","length"
 0,,1869
 1869,1869,2538
