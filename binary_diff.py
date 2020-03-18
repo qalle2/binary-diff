@@ -47,7 +47,7 @@ def parse_arguments():
 
 def delete_range(dataRanges, delStart, delLength, minNewLength):
     """Delete a range of file addresses.
-    dataRanges: [(start, end), ...]
+    dataRanges: [(start, length), ...]
     delStart: position to start deletion from (must be in one of dataRanges)
     delLength: length to delete (must fit in the same dataRange)
     minNewLength: don't recreate leading/trailing parts of old dataRange if they're too short
@@ -160,7 +160,6 @@ def print_results(matches, inputFiles):
     file2Matches = sorted((pos2, length) for (pos1, pos2, length) in matches)  # sort first
     for (start, length) in invert_ranges(file2Matches, fileSizes[1]):
         results.append((-1, start, length))
-
     # sort (-1 comes after all other values)
     results.sort(key=lambda result: (result[0] == -1, result[0], result[1] == -1, result[1]))
     # print (replace -1 with "")
