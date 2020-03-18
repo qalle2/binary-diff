@@ -10,7 +10,7 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -m MINIMUM_MATCH_LENGTH, --minimum-match-length MINIMUM_MATCH_LENGTH
-                        minimum length of matches to find (smaller = slower) (default: 1)
+                        minimum length of matches to find (smaller = slower) (default: 8)
   -q, --quiet           do not print messages that indicate progress (default: False)
 
 Output lines consist of three integers separated by commas: position in file 1, position in file 2, length. If one of
@@ -22,20 +22,26 @@ bytes 40-44 in file 1. Hint: copy the output to a spreadsheet program as CSV dat
 ## Examples
 ```
 C:\>type a.txt
-ABCDEKLMNOPQRST
+abcdefgh ijklmnop qrstuvwx ABCDEFGH
 
 C:\>type b.txt
-FGHIJKLMNOUVWXYZ
+ijklmnop abcdefgh qrstuvwx IJKLMNOP
 
 C:\>python binary_diff.py a.txt b.txt
-found match of length 5 at 5/5
+found match of length 10 at 17/17
+found match of length 8 at 0/9
+found match of length 8 at 9/0
 
 "position in a.txt","position in b.txt","length"
-0,,5
-5,5,5
-10,,5
-,0,5
-,10,6
+0,9,8
+8,,1
+9,0,8
+17,17,10
+17,,0
+27,,8
+,8,1
+,17,0
+,27,8
 ```
 
 ```
