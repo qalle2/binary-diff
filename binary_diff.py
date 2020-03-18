@@ -28,7 +28,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "-m", "--minimum-match-length", type=int, default=1,
+        "-m", "--minimum-match-length", type=int, default=8,
         help="minimum length of matches to find (smaller = slower)"
     )
     parser.add_argument(
@@ -181,7 +181,7 @@ def print_results(matches, inputFiles):
     for (start, length) in invert_ranges(file1Matches, fileSizes[0]):
         results.append((start, -1, length))
     # append unmatched parts in file2 (-1 = no match)
-    file2Matches = ((pos2, length) for (pos1, pos2, length) in matches)
+    file2Matches = sorted((pos2, length) for (pos1, pos2, length) in matches)  # sort first
     for (start, length) in invert_ranges(file2Matches, fileSizes[1]):
         results.append((-1, start, length))
 
