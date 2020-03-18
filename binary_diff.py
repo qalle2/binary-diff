@@ -28,11 +28,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "-m", "--minimum-match-length", type=int, default=8,
-        help="minimum length of matches to find (smaller = slower)"
-    )
-    parser.add_argument(
-        "-q", "--quiet", action="store_true", help="do not print messages that indicate progress"
+        "-m", "--min-match-len", type=int, default=8, help="minimum length of matches to find"
     )
     parser.add_argument(
         "input_file", nargs=2, help="two binary files to compare (need not be the same size)"
@@ -41,7 +37,7 @@ def parse_arguments():
     args = parser.parse_args()
 
     # additional validation
-    if args.minimum_match_length < 1:
+    if args.min_match_len < 1:
         sys.exit("Invalid minimum match length.")
     if not all(os.path.isfile(file) for file in args.input_file):
         sys.exit("One of the input files does not exist.")
@@ -49,38 +45,6 @@ def parse_arguments():
         sys.exit("One of the input files is empty.")
 
     return args
-
-def find_longest_common_bytestring(data1, data2, data1Ranges, data2Ranges):
-    """Find the longest common bytestring in two bytestrings.
-    data1, data2: bytes
-    data1Ranges, data2Ranges: addresses available in data1/data2: [(start, length), ...]
-    return: (position_in_data1/None, position_in_data2/None, length)"""
-
-    # longest common bytestring so far
-    maxPos1 = None
-    maxPos2 = None
-    maxLen = 0
-
-    for (start1, length1) in data1Ranges:
-        pos1 = start1
-        while start1 + length1 - pos1 >= maxLen + 1:  # bytes_left_in_range1 >= maxLen + 1
-            for (start2, length2) in data2Ranges:
-                # find longest match (at least maxLen + 1 bytes)
-                matchLen = None
-                for testLen in range(maxLen + 1, min(start1 + length1 - pos1, length2) + 1):
-                    try:
-                        pos2 = data2[start2:start2+length2].index(data1[pos1:pos1+testLen])
-                    except ValueError:
-                        break
-                    matchLen = testLen
-                # if found, it's a new record
-                if matchLen is not None:
-                    maxPos1 = pos1
-                    maxPos2 = start2 + pos2
-                    maxLen = matchLen
-            pos1 += 1
-
-    return (maxPos1, maxPos2, maxLen)
 
 def delete_range(dataRanges, delStart, delLength, minNewLength):
     """Delete a range of file addresses.
@@ -109,10 +73,11 @@ def delete_range(dataRanges, delStart, delLength, minNewLength):
     # sort (or find_longest_common_bytestring() won't return the first one of equally long strings)
     return sorted(dataRanges)
 
-def find_matches(handle1, handle2, settings):
-    """Find matching bytestrings in two binary files.
-    settings: from argparse
-    return: matches: [(position_in_file1, position_in_file2, length), ...]"""
+def find_longest_common_bytestring(handle1, handle2, minMatchLen):
+    """Find the longest common bytestring in two bytestrings (files).
+    handle1, handle2: files
+    minMatchLen: minimum length of matches to find
+    yield: one (position_in_data1, position_in_data2/None, length) per call"""
 
     # read the input files
     handle1.seek(0)
@@ -120,30 +85,38 @@ def find_matches(handle1, handle2, settings):
     handle2.seek(0)
     data2 = handle2.read()
 
-    # unused chunks in data1/data2: [(start, length), ...]
-    data1Ranges = [(0, len(data1))]
+    # unused chunks in data2: [(start, length), ...]
     data2Ranges = [(0, len(data2))]
 
-    matches = []  # [(position_in_data1, position_in_data2, length), ...]
-
-    while True:
-        # find longest bytestring; exit if too short
-        (matchPos1, matchPos2, matchLen) \
-        = find_longest_common_bytestring(data1, data2, data1Ranges, data2Ranges)
-        if matchLen < settings.minimum_match_length:
-            break
-
-        # remember the result
-        matches.append((matchPos1, matchPos2, matchLen))
-
-        # mark file address ranges used
-        data1Ranges = delete_range(data1Ranges, matchPos1, matchLen, settings.minimum_match_length)
-        data2Ranges = delete_range(data2Ranges, matchPos2, matchLen, settings.minimum_match_length)
-
-        if not settings.quiet:
-            print("found match of length {:d} at {:d}/{:d}".format(matchLen, matchPos1, matchPos2))
-
-    return sorted(matches)
+    pos1 = 0
+    while pos1 < len(data1):
+        # find longest prefix of data1[pos1:] in any unused chunk of data2
+        maxPos2 = None  # position of longest match in all of data2
+        maxMatchLen = minMatchLen - 1  # longest match in all of data2
+        for (start2, length2) in data2Ranges:
+            haystack = data2[start2:start2+length2]
+            # find longest prefix of data1[pos1:] in haystack
+            matchLen = None  # longest match in this chunk of data2
+            for testLen in range(maxMatchLen + 1, min(len(data1) - pos1, length2) + 1):
+                try:
+                    offset2 = haystack.index(data1[pos1:pos1+testLen])
+                except ValueError:
+                    break
+                matchLen = testLen
+            if matchLen is not None:
+                # new record found; store it
+                maxPos2 = start2 + offset2
+                maxMatchLen = matchLen
+        if maxPos2 is not None:
+            # match found; output it
+            yield (pos1, maxPos2, maxMatchLen)
+            # delete match from unused chunks of data2
+            data2Ranges = delete_range(data2Ranges, maxPos2, maxMatchLen, minMatchLen)
+            # skip past the match in data1
+            pos1 += maxMatchLen
+        else:
+            # no match found; advance to next byte in data1
+            pos1 += 1
 
 def invert_ranges(ranges_, fileSize):
     """Generate address ranges between 0...(fileSize - 1) that are not in ranges_.
@@ -204,15 +177,14 @@ def main():
     settings = parse_arguments()
 
     # find matches
+    matches = []  # [(position_in_data1, position_in_data2/None, length), ...]
     try:
         with open(settings.input_file[0], "rb") as handle1, \
         open(settings.input_file[1], "rb") as handle2:
-            matches = find_matches(handle1, handle2, settings)
+            for match in find_longest_common_bytestring(handle1, handle2, settings.min_match_len):
+                matches.append(match)
     except OSError:
         sys.exit("Error reading the input files.")
-
-    if not settings.quiet:
-        print()
 
     # print results
     fileNames = (
