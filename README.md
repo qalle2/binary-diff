@@ -1,6 +1,6 @@
 # binary-diff
 ```
-usage: binary_diff.py [-h] [-m MIN_MATCH_LEN] input_file input_file
+usage: binary_diff.py [-h] [-m MIN_MATCH_LEN] [-p] input_file input_file
 
 Compare two binary files. The algorithm: repeatedly find the longest prefix of file 1 in file 2, advance in file 1 and
 mark the addresses in file 2 as used.
@@ -12,6 +12,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -m MIN_MATCH_LEN, --min-match-len MIN_MATCH_LEN
                         minimum length of matches to find (default: 8)
+  -p, --progress        print messages that indicate progress (default: False)
 
 Output lines consist of three integers separated by commas: position in file 1, position in file 2, length. If one of
 the positions is empty, the line denotes an unmatched chunk, otherwise a match. Positions start from 0. E.g. "10,20,3"
