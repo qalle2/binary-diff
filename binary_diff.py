@@ -4,14 +4,6 @@ import argparse
 import os
 import sys
 
-def get_file_sizes(files):
-    """Get sizes of files in an iterable."""
-
-    try:
-        return [os.path.getsize(file) for file in files]
-    except OSError:
-        sys.exit("Error getting the size of the input files.")
-
 def parse_arguments():
     """Parse command line arguments using argparse."""
 
@@ -30,18 +22,20 @@ def parse_arguments():
         "-m", "--min-match-len", type=int, default=8, help="minimum length of matches to find"
     )
     parser.add_argument(
+        "-p", "--progress", action="store_true", help="print messages that indicate progress"
+    )
+    parser.add_argument(
         "input_file", nargs=2, help="two binary files to compare (need not be the same size)"
     )
 
     args = parser.parse_args()
 
-    # additional validation
     if args.min_match_len < 1:
         sys.exit("Invalid minimum match length.")
-    if not all(os.path.isfile(file) for file in args.input_file):
-        sys.exit("One of the input files does not exist.")
-    if min(get_file_sizes(args.input_file)) == 0:
-        sys.exit("One of the input files is empty.")
+    if not os.path.isfile(args.input_file[0]):
+        sys.exit("file1 not found.")
+    if not os.path.isfile(args.input_file[1]):
+        sys.exit("file2 not found.")
 
     return args
 
@@ -78,9 +72,15 @@ def find_longest_common_bytestring(handle1, handle2, minMatchLen):
     minMatchLen: minimum length of matches to find
     yield: one (position_in_data1, position_in_data2/None, length) per call"""
 
-    # read the input files
+    # read file1
+    if handle1.seek(0, 2) == 0:
+        sys.exit("file1 is empty.")
     handle1.seek(0)
     data1 = handle1.read()
+
+    # read file2
+    if handle2.seek(0, 2) == 0:
+        sys.exit("file2 is empty.")
     handle2.seek(0)
     data2 = handle2.read()
 
@@ -148,7 +148,7 @@ def print_results(matches, inputFiles):
     matches: [(position_in_file1, position_in_file2, length), ...]
     inputFiles: iterable of filenames"""
 
-    fileSizes = get_file_sizes(inputFiles)
+    fileSizes = tuple(os.path.getsize(file) for file in inputFiles)
 
     # initialize results with matches
     results = matches.copy()
@@ -169,28 +169,22 @@ def print_results(matches, inputFiles):
 def main():
     """The main function."""
 
-    if sys.version_info[0] != 3:
-        print("Warning: possibly incompatible Python version.", file=sys.stderr)
-
-    settings = parse_arguments()
+    args = parse_arguments()
 
     # find matches
     matches = []  # [(position_in_data1, position_in_data2/None, length), ...]
     try:
-        with open(settings.input_file[0], "rb") as handle1, \
-        open(settings.input_file[1], "rb") as handle2:
-            for match in find_longest_common_bytestring(handle1, handle2, settings.min_match_len):
+        with open(args.input_file[0], "rb") as handle1, open(args.input_file[1], "rb") as handle2:
+            for match in find_longest_common_bytestring(handle1, handle2, args.min_match_len):
                 matches.append(match)
+                if args.progress:
+                    print(f"found match at position {match[0]:d} in file1")
     except OSError:
         sys.exit("Error reading the input files.")
 
     # print results
-    fileNames = (
-        os.path.basename(file).encode("ascii", errors="backslashreplace").decode("ascii")
-        for file in settings.input_file
-    )
-    print('"position in {:s}","position in {:s}","length"'.format(*fileNames))
-    print_results(matches, settings.input_file)
+    print('"position in file1","position in file2","length"')
+    print_results(matches, args.input_file)
 
 if __name__ == "__main__":
     main()
