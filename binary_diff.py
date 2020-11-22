@@ -22,7 +22,12 @@ def parse_arguments():
         "-m", "--min-match-len", type=int, default=8, help="minimum length of matches to find"
     )
     parser.add_argument(
-        "-p", "--progress", action="store_true", help="print messages that indicate progress"
+        "-d", "--max-distance", type=int, default=-1,
+        help="maximum absolute difference of addresses in file1 and file2 (-1 = no limit)"
+    )
+    parser.add_argument(
+        "-p", "--progress", action="store_true",
+        help="print messages that indicate progress (to stderr)"
     )
     parser.add_argument(
         "input_file", nargs=2, help="two binary files to compare (need not be the same size)"
@@ -32,6 +37,8 @@ def parse_arguments():
 
     if args.min_match_len < 1:
         sys.exit("Invalid minimum match length.")
+    if args.max_distance < -1:
+        sys.exit("Invalid maximum match distance.")
     if not os.path.isfile(args.input_file[0]):
         sys.exit("file1 not found.")
     if not os.path.isfile(args.input_file[1]):
@@ -39,37 +46,31 @@ def parse_arguments():
 
     return args
 
-def delete_range(dataRanges, delStart, delLength, minNewLength):
+def delete_range(dataRanges, delRng, minNewLength):
     """Delete a range of file addresses.
-    dataRanges: [(start, length), ...]
-    delStart: position to start deletion from (must be in one of dataRanges)
-    delLength: length to delete (must fit in the same dataRange)
+    dataRanges: list of range() objects
+    delRng: range() to delete (must fit completely in one of dataRanges)
     minNewLength: don't recreate leading/trailing parts of old dataRange if they're too short
     return: new dataRanges"""
 
-    # find the range to split
-    matches = [
-        (start, length) for (start, length) in dataRanges if start <= delStart < start + length
-    ]
+    # find range to split
+    matches = [rng for rng in dataRanges if delRng.start in rng]
     assert len(matches) == 1
-    (oldStart, oldLength) = matches[0]
+    oldRng = matches[0]
     # delete the old range
-    dataRanges.remove((oldStart, oldLength))
-    # recreate the leading part if it's long enough
-    if delStart - oldStart >= minNewLength:
-        dataRanges.append((oldStart, delStart - oldStart))
-    # recreate the trailing part if it's long enough
-    oldEndPlusOne = oldStart + oldLength
-    delEndPlusOne = delStart + delLength
-    if oldEndPlusOne - delEndPlusOne >= minNewLength:
-        dataRanges.append((delEndPlusOne, oldEndPlusOne - delEndPlusOne))
+    dataRanges.remove(oldRng)
+    # recreate leading part if long enough
+    if delRng.start - oldRng.start >= minNewLength:
+        dataRanges.append(range(oldRng.start, delRng.start))
+    # recreate trailing part if long enough
+    if oldRng.stop - delRng.stop >= minNewLength:
+        dataRanges.append(range(delRng.stop, oldRng.stop))
     # sort (or find_longest_common_bytestring() won't return the first one of equally long strings)
-    return sorted(dataRanges)
+    return sorted(dataRanges, key=lambda rng: rng.start)
 
-def find_longest_common_bytestring(handle1, handle2, minMatchLen):
-    """Find the longest common bytestring in two bytestrings (files).
-    handle1, handle2: files
-    minMatchLen: minimum length of matches to find
+def find_longest_common_bytestring(handle1, handle2, args):
+    """Find the longest common bytestrings in two files.
+    args: from argparse
     yield: one (position_in_data1, position_in_data2/None, length) per call"""
 
     # read file1
@@ -84,82 +85,79 @@ def find_longest_common_bytestring(handle1, handle2, minMatchLen):
     handle2.seek(0)
     data2 = handle2.read()
 
-    # unused chunks in data2: [(start, length), ...]
-    data2Ranges = [(0, len(data2))]
+    # unused chunks in data2
+    data2Ranges = [range(len(data2))]
 
     pos1 = 0
     while pos1 < len(data1):
         # find longest prefix of data1[pos1:] in any unused chunk of data2
-        maxPos2 = None  # position of longest match in all of data2
-        maxMatchLen = minMatchLen - 1  # longest match in all of data2
-        for (start2, length2) in data2Ranges:
-            haystack = data2[start2:start2+length2]
-            # find longest prefix of data1[pos1:] in haystack
-            matchLen = None  # longest match in this chunk of data2
-            for testLen in range(maxMatchLen + 1, min(len(data1) - pos1, length2) + 1):
+        bestMatch = range(args.min_match_len - 1)  # longest match in all of data2
+        for rng2 in data2Ranges:
+            # find longest prefix of data1[pos1:] in this chunk of data2
+            matchLen = None  # longest match
+            for testLen in range(len(bestMatch) + 1, min(len(data1) - pos1, len(rng2)) + 1):
                 try:
-                    offset2 = haystack.index(data1[pos1:pos1+testLen])
+                    offset2 = data2[rng2.start:rng2.stop].index(data1[pos1:pos1+testLen])
                 except ValueError:
-                    break
+                    break  # not found
+                if args.max_distance != -1 \
+                and abs(rng2.start + offset2 - pos1) > args.max_distance:
+                    break  # positions in files too far apart
                 matchLen = testLen
             if matchLen is not None:
                 # new record found; store it
-                maxPos2 = start2 + offset2
-                maxMatchLen = matchLen
-        if maxPos2 is not None:
+                bestMatch = range(rng2.start + offset2, rng2.start + offset2 + matchLen)
+
+        if len(bestMatch) >= args.min_match_len:
             # match found; output it
-            yield (pos1, maxPos2, maxMatchLen)
+            yield (pos1, bestMatch.start, len(bestMatch))
             # delete match from unused chunks of data2
-            data2Ranges = delete_range(data2Ranges, maxPos2, maxMatchLen, minMatchLen)
+            data2Ranges = delete_range(data2Ranges, bestMatch, args.min_match_len)
             # skip past the match in data1
-            pos1 += maxMatchLen
+            pos1 += len(bestMatch)
         else:
             # no match found; advance to next byte in data1
             pos1 += 1
 
-def invert_ranges(ranges_, fileSize):
-    """Generate address ranges between 0...(fileSize - 1) that are not in ranges_.
-    ranges_: [(start, length), ...]
-    yield: one (start, length) per call"""
+def invert_ranges(ranges, fileSize):
+    """Generate address ranges between 0...(fileSize - 1) that are not in ranges.
+    ranges: list of range() objects
+    yield: one range() per call"""
 
-    # previous range
-    prevStart = None
-    prevLength = None
+    prevRng = None  # previous range
 
-    for (start, length) in ranges_:
-        if prevStart is None:
-            # possible gap before the first range in ranges_
-            if start > 0:
-                yield (0, start)
-        else:
-            # possible gap between two ranges in ranges_
-            prevEndPlus1 = prevStart + prevLength
-            if start > prevEndPlus1:
-                yield (prevEndPlus1, start - prevEndPlus1)
-        prevStart = start
-        prevLength = length
-    # possible gap after the last range in ranges_
-    prevEndPlus1 = 0 if prevStart is None else prevStart + prevLength
-    if fileSize > prevEndPlus1:
-        yield (prevEndPlus1, fileSize - prevEndPlus1)
+    for rng in sorted(ranges, key=lambda r: r.start):
+        if prevRng is None and rng.start > 0:
+            yield range(rng.start)  # gap before first range
+        elif prevRng is not None:
+            if rng.start > prevRng.stop:
+                yield range(prevRng.stop, rng.start)  # gap between two ranges
+        prevRng = rng
+
+    prevStop = 0 if prevRng is None else prevRng.stop
+    if fileSize > prevStop:
+        yield range(prevStop, fileSize)  # gap after last range
 
 def print_results(matches, inputFiles):
     """Print the results (matches and unmatched parts in both files).
     matches: [(position_in_file1, position_in_file2, length), ...]
     inputFiles: iterable of filenames"""
 
-    fileSizes = tuple(os.path.getsize(file) for file in inputFiles)
+    try:
+        fileSizes = [os.path.getsize(file) for file in inputFiles]
+    except OSError:
+        sys.exit("Error getting sizes of input files.")
 
     # initialize results with matches
     results = matches.copy()
     # append unmatched parts in file1 (-1 = no match)
-    file1Matches = ((pos1, length) for (pos1, pos2, length) in matches)
-    for (start, length) in invert_ranges(file1Matches, fileSizes[0]):
-        results.append((start, -1, length))
-    # append unmatched parts in file2 (-1 = no match)
-    file2Matches = sorted((pos2, length) for (pos1, pos2, length) in matches)  # sort first
-    for (start, length) in invert_ranges(file2Matches, fileSizes[1]):
-        results.append((-1, start, length))
+    file1Matches = (range(pos1, pos1 + length) for (pos1, pos2, length) in matches)
+    for rng in invert_ranges(file1Matches, fileSizes[0]):
+        results.append((rng.start, -1, len(rng)))
+    # append unmatched parts in file2 (-1 = no match; sort first)
+    file2Matches = (range(pos2, pos2 + length) for (pos1, pos2, length) in matches)
+    for rng in invert_ranges(file2Matches, fileSizes[1]):
+        results.append((-1, rng.start, len(rng)))
     # sort (-1 comes after all other values)
     results.sort(key=lambda result: (result[0] == -1, result[0], result[1] == -1, result[1]))
     # print (replace -1 with "")
@@ -175,10 +173,10 @@ def main():
     matches = []  # [(position_in_data1, position_in_data2/None, length), ...]
     try:
         with open(args.input_file[0], "rb") as handle1, open(args.input_file[1], "rb") as handle2:
-            for match in find_longest_common_bytestring(handle1, handle2, args.min_match_len):
+            for match in find_longest_common_bytestring(handle1, handle2, args):
                 matches.append(match)
                 if args.progress:
-                    print(f"found match at position {match[0]:d} in file1")
+                    print(f"match found at position {match[0]} in file1", file=sys.stderr)
     except OSError:
         sys.exit("Error reading the input files.")
 
