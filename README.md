@@ -62,3 +62,7 @@ C:\>python binary_diff.py --minimum-match-length 1024 smb-w.prg smb-e.prg
 ,11836,19321
 ,32512,256
 ```
+
+## To do
+* If the `--max-distance` option is used (not -1), the program will incorrectly ignore some matches.
+
