@@ -5,7 +5,11 @@ python3 binary_diff.py test/a.txt test/b.txt
 echo
 
 echo "=== Files a, b (progress messages) ==="
-python3 binary_diff.py --progress test/a.txt test/b.txt
+python3 binary_diff.py -p test/a.txt test/b.txt
+echo
+
+echo "=== Files a, b (tabular) ==="
+python3 binary_diff.py -t test/a.txt test/b.txt
 echo
 
 echo "=== SMB (min-match-len 1024) ==="

@@ -4,13 +4,13 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Compare two binary files. The algorithm: repeatedly find "
         "the longest prefix of file 1 in file 2, advance in file 1 and mark "
-        "the addresses in file 2 as used.",
-        epilog="Output lines consist of three integers separated by commas: "
-        "position in file 1, position in file 2, length. If one of the "
-        "positions is empty, the line denotes an unmatched chunk, otherwise a "
-        "match. Positions start from 0. E.g. '10,20,3' means bytes 10-12 in "
-        "file 1 are identical to bytes 20-22 in file 2, and '40,,5' means no "
-        "match in file 2 was found for bytes 40-44 in file 1."
+        "the addresses in file 2 as used. Output lines consist of three "
+        "integers separated by commas: position in file 1, position in file "
+        "2, length. If one of the positions is empty, the line denotes an "
+        "unmatched chunk, otherwise a match. Positions start from 0. E.g. "
+        "'10,20,3' means bytes 10-12 in file 1 are identical to bytes 20-22 "
+        "in file 2, and '40,,5' means no match in file 2 was found for bytes "
+        "40-44 in file 1."
     )
 
     parser.add_argument(
@@ -21,6 +21,11 @@ def parse_arguments():
         "-d", "--max-distance", type=int, default=-1,
         help="Maximum absolute difference of addresses in file1 and file2 "
         "(default = -1 = no limit); note: does not work at the moment."
+    )
+    parser.add_argument(
+        "-t", "--tabular", action="store_true",
+        help="Print results in tabular format instead (hexadecimal address "
+        "ranges)."
     )
     parser.add_argument(
         "-p", "--progress", action="store_true",
@@ -146,7 +151,7 @@ def invert_ranges(ranges, fileSize):
     if fileSize > prevStop:
         yield range(prevStop, fileSize)  # gap after last range
 
-def print_results(matches, fileSize1, fileSize2):
+def print_results(matches, fileSize1, fileSize2, args):
     # print matches and unmatched parts in both files
     # matches: [(position_in_file1, position_in_file2, length), ...]
 
@@ -168,9 +173,24 @@ def print_results(matches, fileSize1, fileSize2):
     results.sort(key=lambda result: (
         result[0] == -1, result[0], result[1] == -1, result[1]
     ))
+
     # print (replace -1 with "")
-    for result in results:
-        print(",".join(("" if n == -1 else str(n)) for n in result))
+    if args.tabular:
+        for (pos1, pos2, length) in results:
+            print("file1 ", end="")
+            if pos1 != -1:
+                print(f"{pos1:8x}-{pos1+length-1:8x}", end="")
+            else:
+                print(f"{'(nothing)':17}", end="")
+            print(" = file2 ", end="")
+            if pos2 != -1:
+                print(f"{pos2:8x}-{pos2+length-1:8x}")
+            else:
+                print("(nothing)")
+    else:
+        print('"position in file1","position in file2","length"')
+        for result in results:
+            print(",".join(("" if n == -1 else str(n)) for n in result))
 
 def main():
     args = parse_arguments()
@@ -188,7 +208,6 @@ def main():
     except OSError:
         sys.exit("Error reading files.")
 
-    print('"position in file1","position in file2","length"')
-    print_results(matches, fileSize1, fileSize2)
+    print_results(matches, fileSize1, fileSize2, args)
 
 main()
