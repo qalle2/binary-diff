@@ -1,16 +1,16 @@
 import argparse, os, sys
 
 def parse_arguments():
-    # parse command line arguments using argparse
-
     parser = argparse.ArgumentParser(
-        description="Compare two binary files. The algorithm: repeatedly find the longest prefix "
-        "of file 1 in file 2, advance in file 1 and mark the addresses in file 2 as used.",
-        epilog="Output lines consist of three integers separated by commas: position in file 1, "
-        "position in file 2, length. If one of the positions is empty, the line denotes an "
-        "unmatched chunk, otherwise a match. Positions start from 0. E.g. '10,20,3' means bytes "
-        "10...12 in file 1 are identical to bytes 20...22 in file 2, and '40,,5' means no match "
-        "in file 2 was found for bytes 40...44 in file 1."
+        description="Compare two binary files. The algorithm: repeatedly find "
+        "the longest prefix of file 1 in file 2, advance in file 1 and mark "
+        "the addresses in file 2 as used.",
+        epilog="Output lines consist of three integers separated by commas: "
+        "position in file 1, position in file 2, length. If one of the "
+        "positions is empty, the line denotes an unmatched chunk, otherwise a "
+        "match. Positions start from 0. E.g. '10,20,3' means bytes 10-12 in "
+        "file 1 are identical to bytes 20-22 in file 2, and '40,,5' means no "
+        "match in file 2 was found for bytes 40-44 in file 1."
     )
 
     parser.add_argument(
@@ -19,8 +19,8 @@ def parse_arguments():
     )
     parser.add_argument(
         "-d", "--max-distance", type=int, default=-1,
-        help="Maximum absolute difference of addresses in file1 and file2 (default = -1 = no "
-        "limit); note: does not work at the moment."
+        help="Maximum absolute difference of addresses in file1 and file2 "
+        "(default = -1 = no limit); note: does not work at the moment."
     )
     parser.add_argument(
         "-p", "--progress", action="store_true",
@@ -28,7 +28,8 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "input_file", nargs=2, help="Two binary files to compare (need not be the same size)."
+        "input_file", nargs=2,
+        help="Two binary files to compare (need not be the same size)."
     )
 
     args = parser.parse_args()
@@ -49,8 +50,8 @@ def delete_range(dataRanges, delRng, minNewLen):
     # delete a range of file addresses
     # dataRanges: list of range() objects
     # delRng: range() to delete (must fit completely in one of dataRanges)
-    # minNewLen: don't recreate leading/trailing parts of old dataRange if they're shorter than
-    #            this
+    # minNewLen: don't recreate leading/trailing parts of old dataRange if
+    #            they're shorter than this
     # return: new dataRanges
 
     # find range to split (should always find one result)
@@ -63,10 +64,11 @@ def delete_range(dataRanges, delRng, minNewLen):
     # recreate trailing part if long enough
     if oldRng.stop - delRng.stop >= minNewLen:
         dataRanges.append(range(delRng.stop, oldRng.stop))
-    # sort (or find_longest_common_bytestring() won't return the first one of equally long strings)
+    # sort (or find_longest_common_bytestr() won't return the first one of
+    # equally long strings)
     return sorted(dataRanges, key=lambda r: r.start)
 
-def find_longest_common_bytestring(handle1, handle2, args):
+def find_longest_common_bytestr(handle1, handle2, args):
     # find the longest common bytestrings in two files
     # generate: (position_in_data1, position_in_data2/None, length)
 
@@ -88,13 +90,18 @@ def find_longest_common_bytestring(handle1, handle2, args):
     pos1 = 0
     while pos1 < len(data1):
         # find longest prefix of data1[pos1:] in any unused chunk of data2
-        bestMatch = range(args.min_match_len - 1)  # longest match in all of data2
+        # longest match in all of data2
+        bestMatch = range(args.min_match_len - 1)
         for rng2 in data2Ranges:
             # find longest prefix of data1[pos1:] in this chunk of data2
             matchLen = None  # longest match
-            for testLen in range(len(bestMatch) + 1, min(len(data1) - pos1, len(rng2)) + 1):
+            for testLen in range(
+                len(bestMatch) + 1, min(len(data1) - pos1, len(rng2)) + 1
+            ):
                 try:
-                    offset2 = data2[rng2.start:rng2.stop].index(data1[pos1:pos1+testLen])
+                    offset2 = data2[rng2.start:rng2.stop].index(
+                        data1[pos1:pos1+testLen]
+                    )
                 except ValueError:
                     break  # not found
                 if args.max_distance != -1 \
@@ -103,13 +110,17 @@ def find_longest_common_bytestring(handle1, handle2, args):
                 matchLen = testLen
             if matchLen is not None:
                 # new record found; store it
-                bestMatch = range(rng2.start + offset2, rng2.start + offset2 + matchLen)
+                bestMatch = range(
+                    rng2.start + offset2, rng2.start + offset2 + matchLen
+                )
 
         if len(bestMatch) >= args.min_match_len:
             # match found; output it
             yield (pos1, bestMatch.start, len(bestMatch))
             # delete match from unused chunks of data2
-            data2Ranges = delete_range(data2Ranges, bestMatch, args.min_match_len)
+            data2Ranges = delete_range(
+                data2Ranges, bestMatch, args.min_match_len
+            )
             # skip past the match in data1
             pos1 += len(bestMatch)
         else:
@@ -142,15 +153,21 @@ def print_results(matches, fileSize1, fileSize2):
     # initialize results with matches
     results = matches.copy()
     # append unmatched parts in file1 (-1 = no match)
-    file1Matches = (range(pos1, pos1 + length) for (pos1, pos2, length) in matches)
+    file1Matches = (
+        range(pos1, pos1 + length) for (pos1, pos2, length) in matches
+    )
     for rng in invert_ranges(file1Matches, fileSize1):
         results.append((rng.start, -1, len(rng)))
     # append unmatched parts in file2 (-1 = no match; sort first)
-    file2Matches = (range(pos2, pos2 + length) for (pos1, pos2, length) in matches)
+    file2Matches = (
+        range(pos2, pos2 + length) for (pos1, pos2, length) in matches
+    )
     for rng in invert_ranges(file2Matches, fileSize2):
         results.append((-1, rng.start, len(rng)))
     # sort (-1 comes after all other values)
-    results.sort(key=lambda result: (result[0] == -1, result[0], result[1] == -1, result[1]))
+    results.sort(key=lambda result: (
+        result[0] == -1, result[0], result[1] == -1, result[1]
+    ))
     # print (replace -1 with "")
     for result in results:
         print(",".join(("" if n == -1 else str(n)) for n in result))
@@ -160,8 +177,9 @@ def main():
 
     matches = []  # [(position_in_data1, position_in_data2/None, length), ...]
     try:
-        with open(args.input_file[0], "rb") as handle1, open(args.input_file[1], "rb") as handle2:
-            for match in find_longest_common_bytestring(handle1, handle2, args):
+        with open(args.input_file[0], "rb") as handle1, \
+        open(args.input_file[1], "rb") as handle2:
+            for match in find_longest_common_bytestr(handle1, handle2, args):
                 matches.append(match)
                 if args.progress:
                     print(f"match found at position {match[0]} in file1")
