@@ -2,40 +2,16 @@ import argparse, os, sys
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Compare two binary files. The algorithm: repeatedly find "
-        "the longest prefix of file 1 in file 2, advance in file 1 and mark "
-        "the addresses in file 2 as used. Output lines consist of three "
-        "integers separated by commas: position in file 1, position in file "
-        "2, length. If one of the positions is empty, the line denotes an "
-        "unmatched chunk, otherwise a match. Positions start from 0. E.g. "
-        "'10,20,3' means bytes 10-12 in file 1 are identical to bytes 20-22 "
-        "in file 2, and '40,,5' means no match in file 2 was found for bytes "
-        "40-44 in file 1."
+        description="Compare two binary files. See README.md for details."
     )
 
+    parser.add_argument("-m", "--min-match-len", type=int, default=8)
     parser.add_argument(
-        "-m", "--min-match-len", type=int, default=8,
-        help="Minimum length of matches to find. Default=8."
+        "-d", "--max-distance", type=int, default=-1, help="Does not work yet!"
     )
-    parser.add_argument(
-        "-d", "--max-distance", type=int, default=-1,
-        help="Maximum absolute difference of addresses in file1 and file2 "
-        "(default = -1 = no limit); note: does not work at the moment."
-    )
-    parser.add_argument(
-        "-t", "--tabular", action="store_true",
-        help="Print results in tabular format instead (hexadecimal address "
-        "ranges)."
-    )
-    parser.add_argument(
-        "-p", "--progress", action="store_true",
-        help="Print messages that indicate progress."
-    )
-
-    parser.add_argument(
-        "input_file", nargs=2,
-        help="Two binary files to compare (need not be the same size)."
-    )
+    parser.add_argument("-t", "--tabular", action="store_true")
+    parser.add_argument("-p", "--progress", action="store_true")
+    parser.add_argument("input_file", nargs=2)
 
     args = parser.parse_args()
 
