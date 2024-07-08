@@ -7,7 +7,7 @@ def parse_arguments():
 
     parser.add_argument("-m", "--min-match-len", type=int, default=8)
     parser.add_argument(
-        "-d", "--max-distance", type=int, default=-1, help="Does not work yet!"
+        "-d", "--max-distance", type=int, default=-1, help="not implemented"
     )
     parser.add_argument("-t", "--tabular", action="store_true")
     parser.add_argument("-p", "--progress", action="store_true")
@@ -16,9 +16,9 @@ def parse_arguments():
     args = parser.parse_args()
 
     if args.min_match_len < 1:
-        sys.exit("Invalid minimum match length.")
+        sys.exit("Minimum match length must be 1 or greater.")
     if args.max_distance < -1:
-        sys.exit("Invalid maximum match distance.")
+        sys.exit("Maximum match distance must be -1 or greater.")
 
     if not os.path.isfile(args.input_file[0]):
         sys.exit("file1 not found.")
@@ -27,85 +27,90 @@ def parse_arguments():
 
     return args
 
-def delete_range(dataRanges, delRng, minNewLen):
+def delete_range(dataRanges, delRange, minNewLen):
     # delete a range of file addresses
-    # dataRanges: list of range() objects
-    # delRng: range() to delete (must fit completely in one of dataRanges)
-    # minNewLen: don't recreate leading/trailing parts of old dataRange if
-    #            they're shorter than this
-    # return: new dataRanges
+    # dataRanges: [range1, ...]
+    # delRange:   range to delete (must fit completely in one of dataRanges)
+    # minNewLen:  don't recreate leading/trailing parts of old dataRange if
+    #             they're shorter than this
+    # return:     new dataRanges
 
-    # find range to split (should always find one result)
-    oldRng = [r for r in dataRanges if delRng.start in r][0]
+    # find range to split (should always find one)
+    oldRange = [r for r in dataRanges if delRange.start in r][0]
     # delete the old range
-    dataRanges.remove(oldRng)
+    dataRanges.remove(oldRange)
     # recreate leading part if long enough
-    if delRng.start - oldRng.start >= minNewLen:
-        dataRanges.append(range(oldRng.start, delRng.start))
+    range_ = range(oldRange.start, delRange.start)
+    if len(range_) >= minNewLen:
+        dataRanges.append(range_)
     # recreate trailing part if long enough
-    if oldRng.stop - delRng.stop >= minNewLen:
-        dataRanges.append(range(delRng.stop, oldRng.stop))
-    # sort (or find_longest_common_bytestr() won't return the first one of
-    # equally long strings)
+    range_ = range(delRange.stop, oldRange.stop)
+    if len(range_) >= minNewLen:
+        dataRanges.append(range_)
+    # sort (otherwise find_longest_common_bytestr() wouldn't return the first
+    # one of equally long strings)
     return sorted(dataRanges, key=lambda r: r.start)
 
 def find_longest_common_bytestr(handle1, handle2, args):
     # find the longest common bytestrings in two files
-    # generate: (position_in_data1, position_in_data2/None, length)
+    # generate: (position_in_file1, position_in_file2/None, length)
 
-    # read file1
+    # read files
     if handle1.seek(0, 2) == 0:
         sys.exit("file1 is empty.")
-    handle1.seek(0)
-    data1 = handle1.read()
-
-    # read file2
     if handle2.seek(0, 2) == 0:
         sys.exit("file2 is empty.")
+    handle1.seek(0)
     handle2.seek(0)
+    data1 = handle1.read()
     data2 = handle2.read()
 
-    # unused chunks in data2
+    # initialize unused ranges in data2
     data2Ranges = [range(len(data2))]
 
+    # TODO: implement args.max_distance
+    #if (
+    #    args.max_distance != -1
+    #    and abs(range2.start + offset2 - pos1) > args.max_distance
+    #):
+    #    break  # positions in files too far apart
+
+    # repeatedly find the longest prefix of data1 in data2, advance in data1
+    # and mark the range in data2 as used
     pos1 = 0
     while pos1 < len(data1):
-        # find longest prefix of data1[pos1:] in any unused chunk of data2
-        # longest match in all of data2
-        bestMatch = range(args.min_match_len - 1)
-        for rng2 in data2Ranges:
-            # find longest prefix of data1[pos1:] in this chunk of data2
-            matchLen = None  # longest match
+        longestMatch = None  # range or None
+
+        for range2 in data2Ranges:
+            if longestMatch is None:
+                minTestLen = args.min_match_len
+            else:
+                minTestLen = len(longestMatch) + 1
+            longestMatchInRange2 = None  # int or None
             for testLen in range(
-                len(bestMatch) + 1, min(len(data1) - pos1, len(rng2)) + 1
+                minTestLen, min(len(data1) - pos1, len(range2)) + 1
             ):
                 try:
-                    offset2 = data2[rng2.start:rng2.stop].index(
+                    offset2 = data2[range2.start:range2.stop].index(
                         data1[pos1:pos1+testLen]
                     )
                 except ValueError:
-                    break  # not found
-                if args.max_distance != -1 \
-                and abs(rng2.start + offset2 - pos1) > args.max_distance:
-                    break  # positions in files too far apart
-                matchLen = testLen
-            if matchLen is not None:
-                # new record found; store it
-                bestMatch = range(
-                    rng2.start + offset2, rng2.start + offset2 + matchLen
+                    break
+                longestMatchInRange2 = testLen
+
+            if longestMatchInRange2 is not None:
+                longestMatch = range(
+                    range2.start + offset2,
+                    range2.start + offset2 + longestMatchInRange2
                 )
 
-        if len(bestMatch) >= args.min_match_len:
-            # match found; output it
-            yield (pos1, bestMatch.start, len(bestMatch))
-            # delete match from unused chunks of data2
+        if longestMatch is not None:
+            yield (pos1, longestMatch.start, len(longestMatch))
             data2Ranges = delete_range(
-                data2Ranges, bestMatch, args.min_match_len
+                data2Ranges, longestMatch, args.min_match_len
             )
-            # skip past the match in data1
-            pos1 += len(bestMatch)
+            pos1 += len(longestMatch)
         else:
-            # no match found; advance to next byte in data1
             pos1 += 1
 
 def invert_ranges(ranges, fileSize):
@@ -113,21 +118,22 @@ def invert_ranges(ranges, fileSize):
     # ranges: list of range() objects
     # generate: range()
 
-    prevRng = None  # previous range
+    prevRange = None
 
-    for rng in sorted(ranges, key=lambda r: r.start):
-        if prevRng is None and rng.start > 0:
-            yield range(rng.start)  # gap before first range
-        elif prevRng is not None:
-            if rng.start > prevRng.stop:
-                yield range(prevRng.stop, rng.start)  # gap between two ranges
-        prevRng = rng
+    for range_ in sorted(ranges, key=lambda r: r.start):
+        if prevRange is None and range_.start > 0:
+            yield range(range_.start)  # gap before first range
+        elif prevRange is not None:
+            if range_.start > prevRange.stop:
+                # gap between two ranges
+                yield range(prevRange.stop, range_.start)
+        prevRange = range_
 
-    prevStop = 0 if prevRng is None else prevRng.stop
+    prevStop = 0 if prevRange is None else prevRange.stop
     if fileSize > prevStop:
         yield range(prevStop, fileSize)  # gap after last range
 
-def print_results(matches, fileSize1, fileSize2, args):
+def print_results(matches, fileSize1, fileSize2, tabularOutput):
     # print matches and unmatched parts in both files
     # matches: [(position_in_file1, position_in_file2, length), ...]
 
@@ -137,21 +143,21 @@ def print_results(matches, fileSize1, fileSize2, args):
     file1Matches = (
         range(pos1, pos1 + length) for (pos1, pos2, length) in matches
     )
-    for rng in invert_ranges(file1Matches, fileSize1):
-        results.append((rng.start, -1, len(rng)))
+    for range_ in invert_ranges(file1Matches, fileSize1):
+        results.append((range_.start, -1, len(range_)))
     # append unmatched parts in file2 (-1 = no match; sort first)
     file2Matches = (
         range(pos2, pos2 + length) for (pos1, pos2, length) in matches
     )
-    for rng in invert_ranges(file2Matches, fileSize2):
-        results.append((-1, rng.start, len(rng)))
+    for range_ in invert_ranges(file2Matches, fileSize2):
+        results.append((-1, range_.start, len(range_)))
     # sort (-1 comes after all other values)
     results.sort(key=lambda result: (
         result[0] == -1, result[0], result[1] == -1, result[1]
     ))
 
     # print (replace -1 with "")
-    if args.tabular:
+    if tabularOutput:
         for (pos1, pos2, length) in results:
             print("file1 ", end="")
             if pos1 != -1:
@@ -184,6 +190,6 @@ def main():
     except OSError:
         sys.exit("Error reading files.")
 
-    print_results(matches, fileSize1, fileSize2, args)
+    print_results(matches, fileSize1, fileSize2, args.tabular)
 
 main()

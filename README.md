@@ -17,10 +17,11 @@ Table of contents:
     * `N` is -1 or a greater integer.
     * -1 means there is no limit.
     * The default is -1.
-    * Other values than -1 do not work correctly at the moment!
+    * This option has not been implemented yet! It does nothing.
   * `-t` or `--tabular`: See "Output format" below.
   * `-p` or `--progress`: Print messages that indicate progress.
 * *file1* and *file2*: Two binary files to compare.
+  * Neither file may be empty.
   * The files need not be the same size.
 
 ## Output format
@@ -53,4 +54,4 @@ file1 (nothing)         = file2       1b-      22
 ```
 
 ## To do
-* Fix the `--max-distance` option.
+* Implement the `--max-distance` option.
