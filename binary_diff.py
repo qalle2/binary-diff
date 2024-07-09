@@ -7,7 +7,7 @@ def parse_arguments():
 
     parser.add_argument("-m", "--min-match-len", type=int, default=8)
     parser.add_argument(
-        "-d", "--max-distance", type=int, default=-1, help="not implemented"
+        "-d", "--max-distance", type=int, default=-1, help="experimental"
     )
     parser.add_argument("-t", "--tabular", action="store_true")
     parser.add_argument("-p", "--progress", action="store_true")
@@ -68,13 +68,6 @@ def find_longest_common_bytestr(handle1, handle2, args):
     # initialize unused ranges in data2
     data2Ranges = [range(len(data2))]
 
-    # TODO: implement args.max_distance
-    #if (
-    #    args.max_distance != -1
-    #    and abs(range2.start + offset2 - pos1) > args.max_distance
-    #):
-    #    break  # positions in files too far apart
-
     # repeatedly find the longest prefix of data1 in data2, advance in data1
     # and mark the range in data2 as used
     pos1 = 0
@@ -82,6 +75,15 @@ def find_longest_common_bytestr(handle1, handle2, args):
         longestMatch = None  # range or None
 
         for range2 in data2Ranges:
+            # ignore range if it can't fulfill the max_distance requirement
+            if args.max_distance != -1 and max(
+                range2.start - pos1, pos1 - (range2.stop - args.min_match_len)
+            ) > args.max_distance:
+                continue
+
+            # TODO: ignore remaining matches that violate the max_distance
+            # requirement
+
             if longestMatch is None:
                 minTestLen = args.min_match_len
             else:

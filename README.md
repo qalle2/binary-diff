@@ -17,7 +17,7 @@ Table of contents:
     * `N` is -1 or a greater integer.
     * -1 means there is no limit.
     * The default is -1.
-    * This option has not been implemented yet! It does nothing.
+    * This option is experimental! It will let many matches through that don't fulfill the requirement. It should not eliminate correct matches anymore, however.
   * `-t` or `--tabular`: See "Output format" below.
   * `-p` or `--progress`: Print messages that indicate progress.
 * *file1* and *file2*: Two binary files to compare.
@@ -54,4 +54,4 @@ file1 (nothing)         = file2       1b-      22
 ```
 
 ## To do
-* Implement the `--max-distance` option.
+* Fix the `--max-distance` option.
